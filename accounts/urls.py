@@ -1,7 +1,10 @@
-# accounts/urls.py
-from django.urls import path
-from .views import UserCreateView
+from django.urls import path, include
+from accounts.views import UserSignupViewSet
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter()
+router.register('signup', UserSignupViewSet, basename='signup')
 
 urlpatterns = [
-    path('register/', UserCreateView.as_view(), name='user-register'),
+    path('', include(router.urls)),
 ]
