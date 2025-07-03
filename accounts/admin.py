@@ -9,6 +9,23 @@ class CustomUserAdmin(UserAdmin):
     list_filter = ('role', 'is_staff', 'is_active')
     search_fields = ('email', 'full_name')
     ordering = ('full_name',)
+
+    fieldsets = (
+        (None, {'fields': ('email', 'password')}),
+        ('Personal Info', {'fields': ('full_name', 'phone_number')}),
+        ('Permissions', {
+            'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'is_verified', 
+                      'groups', 'user_permissions'),
+        }),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+    )
+    
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'full_name', 'password1', 'password2', 'role', 'is_staff', 'is_active'),
+        }),
+    )
    
 admin.site.register(User, CustomUserAdmin)
 admin.site.register(JobseekerProfile)

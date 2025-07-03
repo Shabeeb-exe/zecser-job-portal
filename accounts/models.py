@@ -41,8 +41,6 @@ class JobseekerProfile(models.Model):
     desired_salary = models.PositiveIntegerField(null=True, blank=True)
     location = models.CharField(max_length=100, blank=True)
     is_available = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.user.full_name}'s Job Seeker Profile"
@@ -67,8 +65,6 @@ class EmployerProfile(models.Model):
     industry = models.CharField(max_length=100, blank=True)
     founded_year = models.PositiveIntegerField(null=True, blank=True)
     location = models.CharField(max_length=100, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.company_name} (Employer Profile)"
