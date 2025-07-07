@@ -3,6 +3,8 @@ import enum
 from django.contrib.auth.models import AbstractUser
 from .managers import CustomUserManager
 from django.core.validators import FileExtensionValidator
+from django.dispatch import receiver
+from django.db.models.signals import post_save
 # Create your models here.
 
 class RoleEnum(enum.Enum):
@@ -29,6 +31,16 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.full_name} ({self.get_role_display()})"
+
+@receiver(post_save, sender=User)
+def create_profile(sender, instance, created, **kwargs):
+    print("========1========")
+    if created:
+        print(created,"========2========")
+        if instance.role == RoleEnum.JOBSEEKER.value:
+            JobseekerProfile.objects.get_or_create(user=instance)
+        elif instance.role == RoleEnum.EMPLOYER.value:
+            EmployerProfile.objects.get_or_create(user=instance)
 
 class JobseekerProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='jobseeker_profile', limit_choices_to= {'role' : RoleEnum.JOBSEEKER.value})
@@ -67,4 +79,4 @@ class EmployerProfile(models.Model):
     location = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
-        return f"{self.company_name} (Employer Profile)"
+        return f"{self.user}'s Employer Profile"

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import User, JobseekerProfile, EmployerProfile, RoleEnum
+from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 
 class UserSignupSerializer(serializers.ModelSerializer):
@@ -13,16 +14,31 @@ class UserSignupSerializer(serializers.ModelSerializer):
         }
     
     def create(self, validated_data):
+        # Hashing the password
         validated_data['password'] = make_password(validated_data['password'])
-        user = User.objects.create(**validated_data)
+        return super().create(validated_data)
 
-        if user.role == RoleEnum.JOBSEEKER.value:
-            JobseekerProfile.objects.create(user=user)
-        elif user.role == RoleEnum.EMPLOYER.value:
-            EmployerProfile.objects.create(user=user)
+class UserLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        if email and password:
+            user = authenticate(request=self.context.get('request'), email=email, password=password)
+
+            if not user:
+                msg = 'Unable to log in with provided credentials.'
+                raise serializers.ValidationError(msg, code='authorization')
+        else:
+            msg = 'Must include  "email" and "password". '
+            raise serializers.ValidationError(msg, code='authorization')
         
-        return user
-    
+        attrs['user'] = user
+        return attrs
+
 class JobseekerProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     full_name = serializers.CharField(source='user.full_name', read_only=True)
@@ -32,9 +48,9 @@ class JobseekerProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'full_name', 'resume', 'skills', 'education', 
             'experience', 'portfolio_url', 'github_url', 'desired_salary',
-            'location', 'is_available', 'created_at', 'updated_at'
+            'location', 'is_available'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id']
 
 class EmployerProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
@@ -45,9 +61,9 @@ class EmployerProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'full_name', 'company_name', 'company_logo',
             'company_website', 'company_size', 'industry', 'founded_year',
-            'location', 'created_at', 'updated_at'
+            'location'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id']
 
 class JobseekerProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:

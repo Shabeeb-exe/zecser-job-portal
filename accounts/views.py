@@ -1,8 +1,10 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from accounts.models import User, JobseekerProfile, EmployerProfile
-from .serializers import UserSignupSerializer, JobseekerProfileSerializer, EmployerProfileSerializer, JobseekerProfileUpdateSerializer, EmployerProfileUpdateSerializer
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import User, JobseekerProfile, EmployerProfile
+from .serializers import UserSignupSerializer, UserLoginSerializer, JobseekerProfileSerializer, EmployerProfileSerializer, JobseekerProfileUpdateSerializer, EmployerProfileUpdateSerializer
 
 # Create your views here.
 class UserSignupViewSet(viewsets.ModelViewSet):
@@ -17,6 +19,26 @@ class UserSignupViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response({'message' : 'User created successfully'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UserLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = UserLoginSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {
+                'email': user.email,
+                'full_name': user.full_name,
+                'role': user.role,
+            }
+        }, status=status.HTTP_200_OK)
 
 class JobseekerProfileViewSet(viewsets.ModelViewSet):
     serializer_class = JobseekerProfileSerializer

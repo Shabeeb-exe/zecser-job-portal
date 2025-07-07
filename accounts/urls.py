@@ -1,9 +1,13 @@
 # urls.py
 from django.urls import path, include
-from accounts.views import UserSignupViewSet, JobseekerProfileViewSet, EmployerProfileViewSet
+from .views import UserSignupViewSet, UserLoginView, JobseekerProfileViewSet, EmployerProfileViewSet
+from rest_framework_simplejwt.views import TokenRefreshView
+
 
 urlpatterns = [
     path('signup/', UserSignupViewSet.as_view({'post': 'create'})), 
+    path('login/', UserLoginView.as_view(), name='login'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('jobseeker-profile/', JobseekerProfileViewSet.as_view({
         'get': 'retrieve',
         'post': 'create',
