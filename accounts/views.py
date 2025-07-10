@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from .models import User, JobseekerProfile, EmployerProfile
 from .serializers import UserSignupSerializer, UserLoginSerializer, JobseekerProfileSerializer, EmployerProfileSerializer, JobseekerProfileUpdateSerializer, EmployerProfileUpdateSerializer
 
@@ -39,11 +40,26 @@ class UserLoginView(APIView):
                 'role': user.role,
             }
         }, status=status.HTTP_200_OK)
+    
+class UserLogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data.get("refersh")
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            return Response({"message" : "Successfully logged out."}, status=status.HTTP_205_RESET_CONTENT)
+        except TokenError:
+            return Response({"error": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class JobseekerProfileViewSet(viewsets.ModelViewSet):
     serializer_class = JobseekerProfileSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'put', 'patch']
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete']
 
     def get_queryset(self):
         return JobseekerProfile.objects.filter(user=self.request.user)
@@ -93,10 +109,15 @@ class JobseekerProfileViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data)
     
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({'message' : 'Jobseeker profile deleted successfully'},status=status.HTTP_204_NO_CONTENT)
+    
 class EmployerProfileViewSet(viewsets.ModelViewSet):
     serializer_class = EmployerProfileSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'put', 'patch']
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete']
 
     def get_queryset(self):
         return EmployerProfile.objects.filter(user=self.request.user)
@@ -147,3 +168,7 @@ class EmployerProfileViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data)
  
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({'message' : 'Employer profile deleted successfully'},status=status.HTTP_204_NO_CONTENT)

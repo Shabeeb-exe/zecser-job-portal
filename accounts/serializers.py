@@ -77,6 +77,11 @@ class JobseekerProfileUpdateSerializer(serializers.ModelSerializer):
             'resume': {'required': False},
         }
 
+    def create(self, validated_data):
+        # Add the current user to the profile data
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
 class EmployerProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployerProfile
@@ -86,4 +91,10 @@ class EmployerProfileUpdateSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'company_logo': {'required': False},
+            'user': {'read_only': True}
         }
+    
+    def create(self, validated_data):
+        # Add the current user to the profile data
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
