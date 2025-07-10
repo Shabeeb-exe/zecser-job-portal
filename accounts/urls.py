@@ -1,6 +1,6 @@
 # urls.py
 from django.urls import path, include
-from .views import UserSignupViewSet, UserLoginView, UserLogoutView, JobseekerProfileViewSet, EmployerProfileViewSet
+from .views import UserSignupViewSet, UserLoginView, UserLogoutView, JobseekerProfileViewSet, EmployerProfileViewSet, JobViewSet
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
@@ -23,4 +23,16 @@ urlpatterns = [
         'patch': 'partial_update',
         'delete': 'destroy'
     })),
+    # job creation and listing
+    path('jobs/', JobViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='job-list'),
+    # job updation and deletion
+    path('jobs/<int:pk>/', JobViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='job-detail'),
 ]

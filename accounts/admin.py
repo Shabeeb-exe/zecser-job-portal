@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, JobseekerProfile, EmployerProfile
+from .models import Job, User, JobseekerProfile, EmployerProfile
 
 # Register your models here.
 class CustomUserAdmin(UserAdmin):
@@ -30,3 +30,10 @@ class CustomUserAdmin(UserAdmin):
 admin.site.register(User, CustomUserAdmin)
 admin.site.register(JobseekerProfile)
 admin.site.register(EmployerProfile)
+
+@admin.register(Job)
+class JobAdmin(admin.ModelAdmin):
+    list_display = ('title', 'employer', 'location', 'job_type', 'is_active')
+    list_filter = ('job_type', 'is_active', 'created_at')
+    search_fields = ('title', 'description', 'employer__company_name')
+    raw_id_fields = ('employer',)

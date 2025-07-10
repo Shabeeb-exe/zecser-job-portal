@@ -4,8 +4,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from .models import User, JobseekerProfile, EmployerProfile
-from .serializers import UserSignupSerializer, UserLoginSerializer, JobseekerProfileSerializer, EmployerProfileSerializer, JobseekerProfileUpdateSerializer, EmployerProfileUpdateSerializer
+from .models import Job, User, JobseekerProfile, EmployerProfile, RoleEnum
+from .serializers import UserSignupSerializer, UserLoginSerializer, JobseekerProfileSerializer, EmployerProfileSerializer, JobseekerProfileUpdateSerializer, EmployerProfileUpdateSerializer, JobSerializer, JobUpdateSerializer
+from .permissions import IsJobseeker, IsEmployer
 
 # Create your views here.
 class UserSignupViewSet(viewsets.ModelViewSet):
@@ -46,7 +47,12 @@ class UserLogoutView(APIView):
 
     def post(self, request):
         try:
-            refresh_token = request.data.get("refersh")
+            refresh_token = request.data.get("refresh")
+            if not refresh_token:
+                return Response(
+                    {"error": "Refresh token is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             token = RefreshToken(refresh_token)
             token.blacklist()
 
@@ -58,7 +64,7 @@ class UserLogoutView(APIView):
 
 class JobseekerProfileViewSet(viewsets.ModelViewSet):
     serializer_class = JobseekerProfileSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsJobseeker]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete']
 
     def get_queryset(self):
@@ -116,7 +122,7 @@ class JobseekerProfileViewSet(viewsets.ModelViewSet):
     
 class EmployerProfileViewSet(viewsets.ModelViewSet):
     serializer_class = EmployerProfileSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmployer]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete']
 
     def get_queryset(self):
@@ -172,3 +178,48 @@ class EmployerProfileViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response({'message' : 'Employer profile deleted successfully'},status=status.HTTP_204_NO_CONTENT)
+
+class JobViewSet(viewsets.ModelViewSet):
+    serializer_class = JobSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete']
+
+    def get_queryset(self):
+        # Employers can see their own jobs, jobseekers can see all active jobs
+        if self.request.user.role == RoleEnum.EMPLOYER.value:
+            return Job.objects.filter(employer__user=self.request.user)
+        return Job.objects.filter(is_active=True)
+    
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return JobUpdateSerializer
+        return JobSerializer
+    
+    def perform_create(self, serializer):
+        # Automatically set the employer to the current user's employer profile
+        employer_profile = self.request.user.employer_profile
+        serializer.save(employer=employer_profile)
+    
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Verify that the employer owns this job
+        if request.user.role == RoleEnum.EMPLOYER.value and instance.employer.user != request.user:
+            return Response(
+                {'error': 'You can only update your own jobs'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Verify that the employer owns this job
+        if request.user.role == RoleEnum.EMPLOYER.value and instance.employer.user != request.user:
+            return Response(
+                {'error': 'You can only delete your own jobs'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        self.perform_destroy(instance)
+        return Response(
+            {'message': 'Job deleted successfully'},
+            status=status.HTTP_204_NO_CONTENT
+        )

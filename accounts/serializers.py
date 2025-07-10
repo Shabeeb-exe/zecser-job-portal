@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, JobseekerProfile, EmployerProfile, RoleEnum
+from .models import User, JobseekerProfile, EmployerProfile, RoleEnum, Job
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 
@@ -77,6 +77,11 @@ class JobseekerProfileUpdateSerializer(serializers.ModelSerializer):
             'resume': {'required': False},
         }
 
+    def validate(self, attrs):
+        if self.context['request'].user.role != RoleEnum.JOBSEEKER.value:
+            raise serializers.ValidationError("Only jobseekers can update this profile")
+        return attrs
+
     def create(self, validated_data):
         # Add the current user to the profile data
         validated_data['user'] = self.context['request'].user
@@ -93,8 +98,40 @@ class EmployerProfileUpdateSerializer(serializers.ModelSerializer):
             'company_logo': {'required': False},
             'user': {'read_only': True}
         }
+
+    def validate(self, attrs):
+        if self.context['request'].user.role != RoleEnum.EMPLOYER.value:
+            raise serializers.ValidationError("Only employers can update this profile")
+        return attrs
     
     def create(self, validated_data):
         # Add the current user to the profile data
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
+    
+class JobSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='employer.company_name', read_only=True)
+    company_logo = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Job
+        fields = [
+            'id', 'employer', 'company_name', 'company_logo', 'title', 
+            'description', 'requirements', 'location', 'job_type', 
+            'salary', 'application_deadline', 'is_active', 'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'employer', 'created_at', 'updated_at']
+    
+    def get_company_logo(self, obj):
+        if obj.employer.company_logo:
+            return self.context['request'].build_absolute_uri(obj.employer.company_logo.url)
+        return None
+
+class JobUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Job
+        fields = [
+            'title', 'description', 'requirements', 'location', 
+            'job_type', 'salary', 'application_deadline', 'is_active'
+        ]
