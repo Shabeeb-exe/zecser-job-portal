@@ -112,6 +112,9 @@ class EmployerProfileUpdateSerializer(serializers.ModelSerializer):
 class JobSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source='employer.company_name', read_only=True)
     company_logo = serializers.SerializerMethodField()
+    salary_min = serializers.SerializerMethodField()
+    salary_max = serializers.SerializerMethodField()
+
     
     class Meta:
         model = Job
@@ -119,10 +122,40 @@ class JobSerializer(serializers.ModelSerializer):
             'id', 'employer', 'company_name', 'company_logo', 'title', 
             'description', 'requirements', 'location', 'job_type', 
             'salary', 'application_deadline', 'is_active', 'created_at',
-            'updated_at'
+            'updated_at','salary_min', 'salary_max'
         ]
         read_only_fields = ['id', 'employer', 'created_at', 'updated_at']
-    
+
+    def get_salary_min(self, obj):
+        min_val, _ = self._parse_salary(obj.salary)
+        return min_val
+
+    def get_salary_max(self, obj):
+        _, max_val = self._parse_salary(obj.salary)
+        return max_val
+
+    def _parse_salary(self, salary_str):
+        """Shared helper method for parsing salaries"""
+        if not salary_str:
+            return None, None
+
+        try:
+            # Remove $ and commas, then split on hyphen
+            clean_str = salary_str.replace('$', '').replace(',', '')
+            parts = clean_str.split('-')
+            
+            if len(parts) == 1:
+                # Single value ("50000")
+                salary = int(parts[0])
+                return salary, salary
+            elif len(parts) == 2:
+                # Range ("80000-100000")
+                return int(parts[0]), int(parts[1])
+        except (ValueError, IndexError):
+            pass
+        
+        return None, None    
+                
     def get_company_logo(self, obj):
         if obj.employer.company_logo:
             return self.context['request'].build_absolute_uri(obj.employer.company_logo.url)

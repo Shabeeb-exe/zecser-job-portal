@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -7,6 +7,10 @@ from rest_framework_simplejwt.exceptions import TokenError
 from .models import Job, User, JobseekerProfile, EmployerProfile, RoleEnum
 from .serializers import UserSignupSerializer, UserLoginSerializer, JobseekerProfileSerializer, EmployerProfileSerializer, JobseekerProfileUpdateSerializer, EmployerProfileUpdateSerializer, JobSerializer, JobUpdateSerializer
 from .permissions import IsJobseeker, IsEmployer
+from rest_framework import filters
+from django_filters import rest_framework as djangofilters
+from django.db.models import IntegerField, Case, When, Value
+from django.db.models.functions import Cast, Substr, StrIndex
 
 # Create your views here.
 class UserSignupViewSet(viewsets.ModelViewSet):
@@ -181,15 +185,83 @@ class EmployerProfileViewSet(viewsets.ModelViewSet):
 
 class JobViewSet(viewsets.ModelViewSet):
     serializer_class = JobSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete']
+    filter_backends = [djangofilters.DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        'job_type' : ['exact','in'],
+        'location' : ['exact','icontains'],
+        'is_active' : ['exact'],
+        'created_at':['gte','lte','exact']
+    }
+    search_fields = ['title', 'description', 'requirements', 'employer__company_name']
+    ordering_fields = ['created_at', 'salary', 'title']
+    ordering = ['-created_at']  # Default ordering
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsEmployer()]
+        return super().get_permissions()
 
     def get_queryset(self):
-        # Employers can see their own jobs, jobseekers can see all active jobs
-        if self.request.user.role == RoleEnum.EMPLOYER.value:
-            return Job.objects.filter(employer__user=self.request.user)
-        return Job.objects.filter(is_active=True)
-    
+        queryset = Job.objects.all()
+        
+        # For authenticated employers, show their own jobs
+        if self.request.user.is_authenticated and self.request.user.role == RoleEnum.EMPLOYER.value:
+            queryset = queryset.filter(employer__user=self.request.user)
+        else:
+            # For everyone else (including unauthenticated), show only active jobs
+            queryset = queryset.filter(is_active=True)
+        
+        # Salary filtering
+        min_salary = self.request.query_params.get('min_salary')
+        max_salary = self.request.query_params.get('max_salary')
+        
+        if min_salary or max_salary:
+            try:
+                min_salary_val = int(min_salary) if min_salary else 0
+                max_salary_val = int(max_salary) if max_salary else float('inf')
+                
+                # Get all jobs and filter in Python (less efficient but more reliable)
+                filtered_jobs = []
+                for job in queryset:
+                    salary_min, salary_max = self._parse_salary(job.salary)
+                    if salary_min is not None and salary_max is not None:
+                        if (not min_salary or salary_max >= min_salary_val) and \
+                        (not max_salary or salary_min <= max_salary_val):
+                            filtered_jobs.append(job.id)
+                
+                # Return filtered queryset
+                return queryset.filter(id__in=filtered_jobs)
+                
+            except ValueError:
+                # Handle invalid salary values
+                pass
+                
+        return queryset
+
+    def _parse_salary(self, salary_str):
+        """Helper method to parse salary string into min/max values"""
+        if not salary_str:
+            return None, None
+        
+        try:
+            # Remove $ and commas, then split on hyphen
+            clean_str = salary_str.replace('$', '').replace(',', '')
+            parts = clean_str.split('-')
+            
+            if len(parts) == 1:
+                # Single value ("50000")
+                salary = int(parts[0])
+                return salary, salary
+            elif len(parts) == 2:
+                # Range ("80000-100000")
+                return int(parts[0]), int(parts[1])
+        except (ValueError, IndexError):
+            pass
+        
+        return None, None
+
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return JobUpdateSerializer
