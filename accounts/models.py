@@ -5,6 +5,9 @@ from .managers import CustomUserManager
 from django.core.validators import FileExtensionValidator
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+import uuid
+from django.utils import timezone
+
 # Create your models here.
 
 class RoleEnum(enum.Enum):
@@ -22,6 +25,14 @@ class User(AbstractUser):
     full_name = models.CharField(max_length=100, null=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="")
+    verification_token = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        null=True,
+        blank=True
+    )
+    verification_token_expires = models.DateTimeField(default=timezone.now() + timezone.timedelta(days=1), null=True, blank=True)
     is_verified = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
@@ -53,6 +64,16 @@ class JobseekerProfile(models.Model):
     desired_salary = models.PositiveIntegerField(null=True, blank=True)
     location = models.CharField(max_length=100, blank=True)
     is_available = models.BooleanField(default=True)
+    receive_job_alerts = models.BooleanField(default=True)
+    alert_frequency = models.CharField(
+        max_length=10,
+        choices=[
+            ('immediate', 'Immediately'),
+            ('daily', 'Daily'),
+            ('weekly', 'Weekly')
+        ],
+        default='daily'
+    )
 
     def __str__(self):
         return f"{self.user.full_name}'s Job Seeker Profile"

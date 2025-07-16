@@ -1,0 +1,25 @@
+<!-- templates/emails/job_alerts.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>New Job Matches</title>
+</head>
+<body>
+    <h2>We found {{ count }} jobs that match your profile!</h2>
+    
+    {% for job in jobs %}
+    <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #eee;">
+        <h3>{{ job.title }} at {{ job.employer.company_name }}</h3>
+        <p><strong>Location:</strong> {{ job.location }}</p>
+        <p><strong>Salary:</strong> {{ job.salary }}</p>
+        <p>{{ job.description|truncatewords:30 }}</p>
+        <a href="{{ site_url }}/jobs/{{ job.id }}/" style="background: #4CAF50; color: white; padding: 10px 15px; text-decoration: none;">
+            View Job
+        </a>
+    </div>
+    {% endfor %}
+    
+    <p>You're receiving this email because you're subscribed to job alerts.</p>
+    <p><a href="{{ site_url }}/unsubscribe/">Unsubscribe</a></p>
+</body>
+</html>

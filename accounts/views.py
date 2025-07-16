@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
@@ -9,8 +10,7 @@ from .serializers import UserSignupSerializer, UserLoginSerializer, JobseekerPro
 from .permissions import IsJobseeker, IsEmployer
 from rest_framework import filters
 from django_filters import rest_framework as djangofilters
-from django.db.models import IntegerField, Case, When, Value
-from django.db.models.functions import Cast, Substr, StrIndex
+import uuid
 
 # Create your views here.
 class UserSignupViewSet(viewsets.ModelViewSet):
@@ -25,6 +25,69 @@ class UserSignupViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response({'message' : 'User created successfully'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request, token):
+        try:
+            user = User.objects.filter(verification_token=token).first()
+            
+            if not user:
+                return Response(
+                    {'error': 'Invalid verification token.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Check if token is expired
+            if user.verification_token_expires and user.verification_token_expires < timezone.now():
+                return Response(
+                    {'error': 'Verification link has expired.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Mark user as verified and clear token
+            user.is_verified = True
+            user.verification_token = None  # Now allowed because field is null=True
+            user.verification_token_expires = None
+            user.save()
+            
+            return Response(
+                {'message': 'Email successfully verified!'},
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            return Response(
+                {'error': 'An error occurred during verification.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class ResendVerificationEmail(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        
+        if user.is_verified:
+            return Response(
+                {'message': 'User is already verified.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Generate new token and expiration
+        user.verification_token = uuid.uuid4()
+        user.verification_token_expires = timezone.now() + timezone.timedelta(days=1)
+        user.save()
+        
+        # Send new verification email
+        from .utils import send_verification_email
+        send_verification_email(user)
+        
+        return Response(
+            {'message': 'Verification email resent successfully!'},
+            status=status.HTTP_200_OK
+        )
 
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]

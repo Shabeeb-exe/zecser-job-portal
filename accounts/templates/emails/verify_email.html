@@ -1,0 +1,16 @@
+<!-- templates/emails/verify_email.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verify Your Email</title>
+</head>
+<body>
+    <h2>Welcome to JobPortal!</h2>
+    <p>Please verify your email address to complete your registration.</p>
+    <a href="{{ verification_url }}" style="background: #4CAF50; color: white; padding: 10px 15px; text-decoration: none;">
+        Verify Email
+    </a>
+    <p>This link will expire in 24 hours.</p>
+    <p>If you didn't request this, please ignore this email.</p>
+</body>
+</html>

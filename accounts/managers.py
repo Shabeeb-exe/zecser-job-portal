@@ -1,5 +1,7 @@
 from django.contrib.auth.base_user import BaseUserManager
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
+import uuid
 
 
 class CustomUserManager(BaseUserManager):
@@ -9,12 +11,17 @@ class CustomUserManager(BaseUserManager):
     """
     def create_user(self, email, password, **extra_fields):
         """
-        Create and save a user with the given email and password.
+        Create and save a User with the given email and password.
         """
         if not email:
-            raise ValueError(_("The Email must be set"))
+            raise ValueError(_('The Email must be set'))
         email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        user = self.model(
+            email=email,
+            verification_token=uuid.uuid4(),
+            verification_token_expires=timezone.now() + timezone.timedelta(days=1),
+            **extra_fields
+        )
         user.set_password(password)
         user.save()
         return user

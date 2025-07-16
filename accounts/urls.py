@@ -1,11 +1,13 @@
 # urls.py
 from django.urls import path, include
-from .views import UserSignupViewSet, UserLoginView, UserLogoutView, JobseekerProfileViewSet, EmployerProfileViewSet, JobViewSet
+from .views import ResendVerificationEmail, UserSignupViewSet, UserLoginView, UserLogoutView, JobseekerProfileViewSet, EmployerProfileViewSet, JobViewSet, VerifyEmailView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
 urlpatterns = [
     path('signup/', UserSignupViewSet.as_view({'post': 'create'})), 
+    path('verify-email/<uuid:token>/', VerifyEmailView.as_view(), name='verify-email'),
+    path('resend-verification/', ResendVerificationEmail.as_view(), name='resend-verification'),
     path('login/', UserLoginView.as_view(), name='login'),
     path('logout/', UserLogoutView.as_view(), name='logout'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

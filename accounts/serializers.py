@@ -14,9 +14,11 @@ class UserSignupSerializer(serializers.ModelSerializer):
         }
     
     def create(self, validated_data):
-        # Hashing the password
-        validated_data['password'] = make_password(validated_data['password'])
-        return super().create(validated_data)
+        user = User.objects.create_user(**validated_data)
+        # Send verification email
+        from .utils import send_verification_email
+        send_verification_email(user)
+        return user
 
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
